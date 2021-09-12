@@ -1,21 +1,20 @@
-import os
-
-import matplotlib.pyplot as plt
+import pandas as pd
 import tensorflow as tf
 from tensorflow.keras import callbacks
-from tensorflow.keras.datasets import cifar10
-from tensorflow.keras.layers import Conv2D, Dense, MaxPool2D,Flatten
-from tensorflow.keras.models import Sequential
+from tensorflow.keras.datasets import mnist
 from tensorflow.keras.utils import to_categorical
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, Dropout, Flatten, Conv2D, MaxPool2D
+import matplotlib.pyplot as plt
+import os
+
 
 # 加载数据集
 # 获取数据集合并归一化处理
-
-
 def load_data():
-    (X_tarin, y_train), (X_test, y_test) = cifar10.load_data()
-    X_train4D = X_tarin.reshape(X_tarin.shape[0], 32, 32, 3).astype('float32')
-    X_test4D = X_test.reshape(X_test.shape[0], 32, 32, 3).astype('float32')
+    (X_tarin, y_train), (X_test, y_test) = mnist.load_data()
+    X_train4D = X_tarin.reshape(X_tarin.shape[0], 28, 28, 1).astype('float32')
+    X_test4D = X_test.reshape(X_test.shape[0], 28, 28, 1).astype('float32')
     X_train4D_Normalize = X_train4D / 255  # 归一化
     X_test4D_Normalize = X_test4D / 255
     # 独热编码
@@ -23,58 +22,43 @@ def load_data():
     y_testOnehot = to_categorical(y_test)
     return X_train4D_Normalize, y_trainOnehot, X_test4D_Normalize, y_testOnehot
 
+
 # 创建模型
-
-
 def create_model():
-    model = Sequential()
-    # vgg-16
+    model = Sequential()  # 一层卷积
     model.add(
         Conv2D(
-            filters=4,
-            kernel_size=(3, 3),
-            padding='same',
-            input_shape=(32, 32, 3),
+            filters=16,
+            kernel_size=(5, 5),
+            padding='same',  # 保证卷积核大小，不够补零
+            input_shape=(28, 28, 1),
             activation='relu'))
-    model.add(
-        Conv2D(
-            filters=4,
-            kernel_size=(3, 3),
-            padding='same',
-            activation='relu'))        
+    # 池化层1
     model.add(MaxPool2D(pool_size=(2, 2)))
+    model.add(Dropout(0.25))
+
+    # 二层卷积
     model.add(
-        Conv2D(filters=8, kernel_size=(3, 3), padding='same', activation='relu'))
-    model.add(
-        Conv2D(filters=8, kernel_size=(3, 3), padding='same', activation='relu'))
+        Conv2D(filters=32, kernel_size=(5, 5), padding='same', activation='relu'))
+    # 池化层2
     model.add(MaxPool2D(pool_size=(2, 2)))
+    model.add(Dropout(0.25))
     model.add(
-        Conv2D(filters=8, kernel_size=(3, 3), padding='same', activation='relu'))
+        Conv2D(filters=64, kernel_size=(5, 5), padding='same', activation='relu'))
     model.add(
-        Conv2D(filters=8, kernel_size=(3, 3), padding='same', activation='relu'))
-    model.add(
-        Conv2D(filters=8, kernel_size=(3, 3), padding='same', activation='relu'))
+        Conv2D(filters=128, kernel_size=(5, 5), padding='same', activation='relu'))
     model.add(MaxPool2D(pool_size=(2, 2)))
-    model.add(
-        Conv2D(filters=8, kernel_size=(3, 3), padding='same', activation='relu'))
-    model.add(
-        Conv2D(filters=8, kernel_size=(3, 3), padding='same', activation='relu'))    
-    model.add(
-        Conv2D(filters=8, kernel_size=(3, 3), padding='same', activation='relu'))
-    model.add(MaxPool2D(pool_size=(2, 2)))
-    model.add(
-        Conv2D(filters=16, kernel_size=(3, 3), padding='same', activation='relu'))
-    model.add(
-        Conv2D(filters=16, kernel_size=(3, 3), padding='same', activation='relu'))
-    model.add(
-        Conv2D(filters=16, kernel_size=(3, 3), padding='same', activation='relu'))
-    model.add(MaxPool2D(pool_size=(2, 2)))
+    model.add(Dropout(0.25))
+    # 平坦层
     model.add(Flatten())
-    model.add(Dense(16, activation='relu'))
+    # 全连接层
+    model.add(Dense(128, activation='relu'))
+    model.add(Dropout(0.25))
     model.add(Dense(10, activation='softmax'))
     # 输出神经网络模型
     print(model.summary())
     return model
+
 
 # 训练模型
 def model_train(epoch, X_train4D_Normalize, y_trainOnehot, X_test4D_Normalize, y_testOnehot):
@@ -92,13 +76,13 @@ def model_train(epoch, X_train4D_Normalize, y_trainOnehot, X_test4D_Normalize, y
         # print(log_dir)
         if not os.path.exists(log_dir):
             os.mkdir(log_dir)
-        # # 定义TensorBoard对象.histogram_freq 如果设置为0，则不会计算直方图。
-        # tensorboard_callback = tf.keras.callbacks.TensorBoard(
-        #     log_dir=log_dir, histogram_freq=1)
+        # 定义TensorBoard对象.histogram_freq 如果设置为0，则不会计算直方图。
+        tensorboard_callback = tf.keras.callbacks.TensorBoard(
+            log_dir=log_dir, histogram_freq=1)
         model = create_model()
-        # learning_rate为学习率，上次设置为0.01
+        # lr为学习率，上次设置为0.01
         model.compile(optimizer=tf.keras.optimizers.Adam(
-            learning_rate=0.001), loss='categorical_crossentropy', metrics=["accuracy"])
+            lr=0.001), loss='categorical_crossentropy', metrics=["accuracy"])
         history = model.fit(X_train4D_Normalize, y_trainOnehot, validation_data=(
             X_test4D_Normalize, y_testOnehot),batch_size = 300, epochs=epoch,callbacks=[tensorboard_callback])
         # 保存训练模型的权重和偏置
@@ -137,9 +121,8 @@ def plot_labels_prediction(images, prediction, idx, num=10):
         idx += 1
     plt.show()
 
-if __name__ == '__main__':
+if __name__=='__main__':
     X_train4D_Normalize, y_trainOnehot, X_test4D_Normalize, y_testOnehot = load_data()
-    print(y_trainOnehot.shape)
     history = model_train(10, X_train4D_Normalize, y_trainOnehot, X_test4D_Normalize, y_testOnehot)
     # 准确率
     show_train_history(history, 'accuracy', 'val_accuracy')
